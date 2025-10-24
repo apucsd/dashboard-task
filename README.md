@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dashboard App
+
+A modern dashboard built with Next.js and React. It includes product and order management, mock API integration, schema-validated forms, and a clean component library.
+
+## Tech Stack
+- Next.js `16` (App Router)
+- React `19`
+- TypeScript `5`
+- Tailwind CSS `4` with `@tailwindcss/postcss`
+- Radix UI primitives (`@radix-ui/react-*`)
+- Lucide icons (`lucide-react`)
+- React Hook Form + Zod + Resolvers (`react-hook-form`, `zod`, `@hookform/resolvers`)
+- Date utilities (`date-fns`) and `react-day-picker`
+- Notifications (`sonner`)
+- Theming (`next-themes`)
+- Data utilities: TanStack Query/Table (`@tanstack/react-query`, `@tanstack/react-table`)
+- Charts (`recharts`)
+- Utility libs: `clsx`, `class-variance-authority`, `tailwind-merge`
+
+## Prerequisites
+- Node.js `>= 18.18`
+- A package manager: `npm` (default), or `yarn`/`pnpm`/`bun`
+- No environment variables required — the app uses an in-memory mock API
 
 ## Getting Started
+1. Install dependencies:
+   ```bash
+   git clone https://github.com/apucsd/dashboard-task.git
+   cd dashboard-task
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   # or
+   bun install
+   ```
+2. Run the development server:
+   ```bash
+   npm run dev
+   ```
+3. Open `http://localhost:3000` in your browser.
 
-First, run the development server:
+## Scripts
+- `npm run dev` — start the Next.js dev server
+- `npm run build` — production build
+- `npm run start` — start the production server after build
+- `npm run lint` — run ESLint
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Project Structure
+```
+src/
+  app/                    # App Router pages and layouts
+    dashboard/            # Dashboard routes (products, orders, etc.)
+  components/             # UI and layout components
+    ui/                   # Reusable UI components (Radix + Tailwind)
+  lib/
+    api.ts                # Mock API layer
+    mock-data.ts          # In-memory data used by the API
+    schemas.ts            # Zod schemas and types
+    utils.ts              # Helpers and utilities
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Development Notes
+- UI styles: Tailwind CSS v4 is configured via PostCSS. Ensure `@tailwindcss/postcss` and `tailwindcss` are installed (they are in `devDependencies`).
+- Forms: Validated with Zod; numeric fields are handled explicitly to avoid `NaN`.
+- Mock API: The app uses `src/lib/api.ts` to simulate backend actions. No external services are required.
+- Toasts: Errors and success messages use `sonner`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Common Tasks
+- Update product status: Implemented via the mock API in `src/lib/api.ts` and used within `src/app/dashboard/products/page.tsx`.
+- Create orders: Form at `src/app/dashboard/orders/create/page.tsx` with live order summary.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment
+- Build and run locally:
+  ```bash
+  npm run build && npm run start
+  ```
+- Or deploy to Vercel. Next.js `16` is fully supported.
 
-## Learn More
+## Troubleshooting
+- Styles not applying? Confirm Tailwind v4 is active and `src/app/globals.css` is loaded.
+- Type errors in forms? Check Zod schema in `src/lib/schemas.ts` and ensure inputs coerce/validate as intended.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+This project was bootstrapped with `create-next-app`. Contributions and feedback are welcome.
