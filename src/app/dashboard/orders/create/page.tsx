@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useFieldArray, useForm } from "react-hook-form"
+import { useFieldArray, useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { CalendarIcon, Loader2, MinusCircle, PlusCircle } from "lucide-react"
 import { format } from "date-fns"
@@ -26,12 +26,13 @@ export default function CreateOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Fetch products for selection
+
+  // Fetch product list
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await productApi.getProducts({ status: true }) // Only active products
+        const data = await productApi.getProducts({ isActive: true })
+        console.log(data)
         setProducts(data)
       } catch (error) {
         toast.error("Failed to fetch products")
@@ -40,19 +41,19 @@ export default function CreateOrderPage() {
         setLoading(false)
       }
     }
-    
     fetchProducts()
   }, [])
-  
-  // Calculate order totals
+
+  // Order summary state
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
     tax: 0,
-    shipping: 10, // Default shipping cost
+    shipping: 10,
     total: 0,
   })
-  
-  const form = useForm<OrderFormValues>({
+
+  // React Hook Form setup
+  const form = useForm<any>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
       products: [{ productId: "", quantity: 1 }],
@@ -60,57 +61,46 @@ export default function CreateOrderPage() {
       deliveryAddress: "",
       paymentStatus: "pending",
       deliveryStatus: "pending",
-      expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      expectedDeliveryDate: new Date(),
     },
   })
-  
-  // Set up field array for dynamic product entries
+
+  // Dynamic product list
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "products",
   })
-  
-  // Watch for changes to recalculate totals
-  const watchProducts = form.watch("products")
-  
-  // Update order summary when products change
+
+  const watchProducts = useWatch({ control: form.control, name: "products" })
+
+  // Calculate totals dynamically
   useEffect(() => {
-    if (!products.length) return
-    
-    let subtotal = 0
-    
-    watchProducts.forEach(item => {
-      const product = products.find(p => p.id === item.productId)
-      if (product) {
-        subtotal += product.price * item.quantity
-      }
-    })
-    
-    const tax = subtotal * 0.08 // 8% tax
-    const shipping = 10 // Fixed shipping
-    const total = subtotal + tax + shipping
-    
-    setOrderSummary({
-      subtotal,
-      tax,
-      shipping,
-      total,
-    })
+    if (!products.length || !watchProducts) return
+
+    const subtotal = watchProducts.reduce((sum: number, item: any) => {
+      const product = products.find((p) => p.id === item.productId)
+      return product ? sum + product.price * (item.quantity || 0) : sum
+    }, 0)
+
+    const tax = subtotal * 0.08
+    const total = subtotal + tax + orderSummary.shipping
+
+    setOrderSummary({ subtotal, tax, shipping: orderSummary.shipping, total })
   }, [watchProducts, products])
-  
+
+
+  // Form submit handler
   async function onSubmit(data: OrderFormValues) {
     try {
       setIsSubmitting(true)
-      
-      // Transform product data for API
       const orderData = {
         ...data,
         totalAmount: orderSummary.total,
         tax: orderSummary.tax,
         shippingCost: orderSummary.shipping,
-        paymentMethod: "credit_card", // Default payment method
+        paymentMethod: "credit_card",
       }
-      
+
       await orderApi.createOrder(orderData)
       toast.success("Order created successfully")
       router.push("/dashboard/orders")
@@ -121,7 +111,8 @@ export default function CreateOrderPage() {
       setIsSubmitting(false)
     }
   }
-  
+
+  // Loading UI
   if (loading) {
     return (
       <div className="container mx-auto py-10">
@@ -133,28 +124,32 @@ export default function CreateOrderPage() {
     )
   }
 
+  // Render page
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto">
       <h1 className="text-3xl font-bold mb-6">Create New Order</h1>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Form */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle>Order Information</CardTitle>
               <CardDescription>
-                Enter the details for the new order. Fields marked with * are required.
+                Enter details for the new order. Fields marked with * are required.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} id="order-form" className="space-y-6">
+                  {/* Products */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Products</h3>
-                    
+
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex flex-col space-y-2">
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                          {/* Product Select */}
                           <div className="md:col-span-6">
                             <FormField
                               control={form.control}
@@ -162,10 +157,7 @@ export default function CreateOrderPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Product *</FormLabel>
-                                  <Select 
-                                    onValueChange={field.onChange} 
-                                    defaultValue={field.value}
-                                  >
+                                  <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                       <SelectTrigger>
                                         <SelectValue placeholder="Select a product" />
@@ -184,7 +176,8 @@ export default function CreateOrderPage() {
                               )}
                             />
                           </div>
-                          
+
+                          {/* Quantity */}
                           <div className="md:col-span-3">
                             <FormField
                               control={form.control}
@@ -193,10 +186,10 @@ export default function CreateOrderPage() {
                                 <FormItem>
                                   <FormLabel>Quantity *</FormLabel>
                                   <FormControl>
-                                    <Input 
-                                      type="number" 
+                                    <Input
+                                      type="number"
                                       min={1}
-                                      {...field}
+                                      value={field.value}
                                       onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                                     />
                                   </FormControl>
@@ -205,7 +198,8 @@ export default function CreateOrderPage() {
                               )}
                             />
                           </div>
-                          
+
+                          {/* Add/Remove Buttons */}
                           <div className="md:col-span-3 flex items-end">
                             {index > 0 && (
                               <Button
@@ -216,10 +210,9 @@ export default function CreateOrderPage() {
                                 className="ml-auto"
                               >
                                 <MinusCircle className="h-4 w-4" />
-                                <span className="sr-only">Remove product</span>
                               </Button>
                             )}
-                            
+
                             {index === fields.length - 1 && (
                               <Button
                                 type="button"
@@ -229,22 +222,22 @@ export default function CreateOrderPage() {
                                 className={cn("ml-2", index === 0 && "ml-auto")}
                               >
                                 <PlusCircle className="h-4 w-4" />
-                                <span className="sr-only">Add product</span>
                               </Button>
                             )}
                           </div>
                         </div>
-                        
-                        {/* Show selected product price and subtotal */}
+
+                        {/* Price summary */}
                         {form.watch(`products.${index}.productId`) && (
                           <div className="text-sm text-muted-foreground ml-auto">
                             {(() => {
                               const productId = form.watch(`products.${index}.productId`)
                               const quantity = form.watch(`products.${index}.quantity`) || 0
-                              const product = products.find(p => p.id === productId)
-                              
+                              const product = products.find((p) => p.id === productId)
                               if (product) {
-                                return `${quantity} × $${product.price.toFixed(2)} = $${(product.price * quantity).toFixed(2)}`
+                                return `${quantity} × $${product.price.toFixed(2)} = $${(
+                                  product.price * quantity
+                                ).toFixed(2)}`
                               }
                               return null
                             })()}
@@ -253,7 +246,8 @@ export default function CreateOrderPage() {
                       </div>
                     ))}
                   </div>
-                  
+
+                  {/* Customer Info */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Customer Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -270,7 +264,7 @@ export default function CreateOrderPage() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="deliveryAddress"
@@ -278,10 +272,7 @@ export default function CreateOrderPage() {
                           <FormItem>
                             <FormLabel>Delivery Address *</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Enter delivery address" 
-                                {...field} 
-                              />
+                              <Textarea placeholder="Enter delivery address" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -289,17 +280,19 @@ export default function CreateOrderPage() {
                       />
                     </div>
                   </div>
-                  
+
+                  {/* Order Details */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Order Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Payment Status */}
                       <FormField
                         control={form.control}
                         name="paymentStatus"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Payment Status *</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select status" />
@@ -315,14 +308,15 @@ export default function CreateOrderPage() {
                           </FormItem>
                         )}
                       />
-                      
+
+                      {/* Delivery Status */}
                       <FormField
                         control={form.control}
                         name="deliveryStatus"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Delivery Status *</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select status" />
@@ -339,7 +333,8 @@ export default function CreateOrderPage() {
                           </FormItem>
                         )}
                       />
-                      
+
+                      {/* Expected Delivery Date */}
                       <FormField
                         control={form.control}
                         name="expectedDeliveryDate"
@@ -350,17 +345,13 @@ export default function CreateOrderPage() {
                               <PopoverTrigger asChild>
                                 <FormControl>
                                   <Button
-                                    variant={"outline"}
+                                    variant="outline"
                                     className={cn(
                                       "w-full pl-3 text-left font-normal",
                                       !field.value && "text-muted-foreground"
                                     )}
                                   >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
+                                    {field.value ? format(field.value, "PPP") : "Pick a date"}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                   </Button>
                                 </FormControl>
@@ -371,7 +362,8 @@ export default function CreateOrderPage() {
                                   selected={field.value}
                                   onSelect={field.onChange}
                                   disabled={(date) =>
-                                    date < new Date() || date > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                                    date < new Date() ||
+                                    date > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                                   }
                                   initialFocus
                                 />
@@ -391,47 +383,29 @@ export default function CreateOrderPage() {
             </CardContent>
           </Card>
         </div>
-        
+
+        {/* Right: Order Summary */}
         <div>
           <Card>
             <CardHeader>
               <CardTitle>Order Summary</CardTitle>
-              <CardDescription>
-                Review your order details before submitting
-              </CardDescription>
+              <CardDescription>Review before submitting</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>${orderSummary.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax (8%):</span>
-                  <span>${orderSummary.tax.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping:</span>
-                  <span>${orderSummary.shipping.toFixed(2)}</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between font-bold">
-                  <span>Total:</span>
-                  <span>${orderSummary.total.toFixed(2)}</span>
-                </div>
+                <div className="flex justify-between"><span>Subtotal:</span><span>${orderSummary.subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Tax (8%):</span><span>${orderSummary.tax.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Shipping:</span><span>${orderSummary.shipping.toFixed(2)}</span></div>
+                <div className="border-t pt-2 flex justify-between font-bold"><span>Total:</span><span>${orderSummary.total.toFixed(2)}</span></div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-2">
-              <Button 
-                type="submit"
-                form="order-form"
-                className="w-full"
-                disabled={isSubmitting}
-              >
+              <Button type="submit" form="order-form" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Creating..." : "Create Order"}
               </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 className="w-full"
                 onClick={() => router.push("/dashboard/orders")}
               >

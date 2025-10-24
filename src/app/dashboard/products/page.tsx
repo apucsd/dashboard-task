@@ -157,14 +157,31 @@ export default function ProductsPage() {
                      <DropdownMenuItem onClick={() => router.push(`/dashboard/products/${product.id}`)}>
                         View details
                      </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => router.push(`/dashboard/products/edit/${product.id}`)}>
+                     {/* <DropdownMenuItem onClick={() => router.push(`/dashboard/products/edit/${product.id}`)}>
                         Edit
-                     </DropdownMenuItem>
+                     </DropdownMenuItem> */}
                      <DropdownMenuSeparator />
                      <DropdownMenuItem
-                        onClick={() => {
-                           // Toggle product status
-                           toast.success(`Product ${product.isActive ? 'deactivated' : 'activated'}`);
+                        onClick={async () => {
+                           try {
+                              // Toggle product status using API
+                              await productApi.updateProduct(product.id, {
+                                 ...product,
+                                 isActive: !product.isActive
+                              });
+                              
+                              // Update local state
+                              setProducts(prevProducts => 
+                                 prevProducts.map(p => 
+                                    p.id === product.id ? { ...p, isActive: !p.isActive } : p
+                                 )
+                              );
+                              
+                              toast.success(`Product ${product.isActive ? 'deactivated' : 'activated'}`);
+                           } catch (error) {
+                              toast.error('Failed to update product status');
+                              console.error(error);
+                           }
                         }}
                      >
                         {product.isActive ? 'Deactivate' : 'Activate'}

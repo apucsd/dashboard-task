@@ -74,6 +74,32 @@ export default function OrdersPage() {
       }));
    };
 
+   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+      try {
+         await orderApi.updateOrder(orderId, { deliveryStatus: newStatus });
+         toast.success('Order status updated');
+         // Refresh orders
+         const data = await orderApi.getOrders(filterValues);
+         setOrders(data);
+      } catch (error) {
+         toast.error('Failed to update order status');
+         console.error(error);
+      }
+   };
+   
+   const handleDelete = async (orderId: string) => {
+      try {
+         await orderApi.deleteOrder(orderId);
+         toast.success('Order deleted');
+         // Refresh orders
+         const data = await orderApi.getOrders(filterValues);
+         setOrders(data);
+      } catch (error) {
+         toast.error('Failed to delete order');
+         console.error(error);
+      }
+   };
+
    const columns: ColumnDef<Order>[] = [
       {
          accessorKey: 'id',
@@ -85,7 +111,7 @@ export default function OrdersPage() {
                </Button>
             );
          },
-         cell: ({ row }) => <div className="font-medium">{row.getValue('id')}</div>,
+         cell: ({ row }) => <div className=" font-medium">{row.getValue('id')}</div>,
       },
       {
          accessorKey: 'clientName',
@@ -124,7 +150,7 @@ export default function OrdersPage() {
                currency: 'USD',
             }).format(amount);
 
-            return <div className="text-right font-medium">{formatted}</div>;
+            return <div className=" font-medium">{formatted}</div>;
          },
       },
       {
@@ -152,8 +178,8 @@ export default function OrdersPage() {
                      status === 'delivered'
                         ? 'default'
                         : status === 'shipped'
-                        ? 'default'
-                        : status === 'canceled'
+                        ? 'secondary'
+                        : status === 'pending'
                         ? 'destructive'
                         : 'outline'
                   }
@@ -181,17 +207,22 @@ export default function OrdersPage() {
                      <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
                         View details
                      </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/edit/${order.id}`)}>
-                        Edit
-                     </DropdownMenuItem>
+
                      <DropdownMenuSeparator />
                      <DropdownMenuItem
                         onClick={() => {
-                           // Update delivery status
-                           toast.success('Order status updated');
+                              handleUpdateStatus(order.id, order.deliveryStatus === 'delivered' ? 'shipped' : 'delivered');
                         }}
                      >
-                        Update status
+                       Update Delivery Status
+                     </DropdownMenuItem>
+                     <DropdownMenuItem
+                     className='text-red-500'
+                        onClick={() => {
+                              handleDelete(order.id);
+                        }}
+                     >
+                       Delete
                      </DropdownMenuItem>
                   </DropdownMenuContent>
                </DropdownMenu>
